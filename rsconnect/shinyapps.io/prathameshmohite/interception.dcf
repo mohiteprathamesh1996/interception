@@ -1,0 +1,12 @@
+name: interception
+title: interception
+username: prathameshmohite
+account: prathameshmohite
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16911945
+bundleId: 11717685
+url: https://prathameshmohite.shinyapps.io/interception/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

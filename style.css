@@ -226,61 +226,179 @@ label {
 }
 
 /* ----------------------------------------------------------
-   Metric cards row
+   Engagement parameters bar
+   One line of key-value pairs sitting between header and KPIs.
+   Gives a physicist immediate context: guidance law, N, NAF, tau.
    ---------------------------------------------------------- */
-.metric-row {
+.engagement-bar {
   display: flex;
-  gap: 8px;
-  padding: 10px 14px 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 8px 18px;
+  background-color: #1a2535;
+  border-bottom: 1px solid #253550;
+}
+
+.eng-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 12px;
+}
+
+.eng-item:first-child {
+  padding-left: 0;
+}
+
+.eng-key {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #5a7a99;
+}
+
+.eng-val {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: "Courier New", monospace;
+  color: #c8d8e8;
+  letter-spacing: 0.04em;
+}
+
+.eng-sep {
+  color: #2d4060;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+/* ----------------------------------------------------------
+   KPI telemetry table
+   3 x 3 grid. Each cell: label top-left, value large,
+   unit inline-right. No card borders — clean data table feel.
+   ---------------------------------------------------------- */
+.kpi-table {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, auto);
   background-color: #ffffff;
   border-bottom: 1px solid #dde3ea;
-  flex-wrap: wrap;
 }
 
+.kpi-cell {
+  padding: 13px 18px 11px;
+  border-right: 1px solid #f0f3f6;
+  border-bottom: 1px solid #f0f3f6;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Remove rightmost and bottom borders */
+.kpi-cell:nth-child(3n) {
+  border-right: none;
+}
+
+.kpi-cell:nth-child(7),
+.kpi-cell:nth-child(8),
+.kpi-cell:nth-child(9) {
+  border-bottom: none;
+}
+
+/* Label */
+.kpi-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: #a8b4c0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Number + unit on the same row */
+.kpi-number-row {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.kpi-value {
+  font-size: 22px;
+  font-weight: 300;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #1a2535;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.kpi-unit {
+  font-size: 10px;
+  font-weight: 500;
+  color: #c5cdd6;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding-bottom: 2px; /* optical baseline alignment */
+}
+
+/* Status tints — background only, keeps the table calm */
+.kpi-cell.status-good { background-color: #f6fdf8; }
+.kpi-cell.status-good .kpi-value { color: #1d7a45; }
+
+.kpi-cell.status-warn { background-color: #fffbf5; }
+.kpi-cell.status-warn .kpi-value { color: #b85c00; }
+
+.kpi-cell.status-alert { background-color: #fdf7f7; }
+.kpi-cell.status-alert .kpi-value { color: #c0392b; }
+
+/* ----------------------------------------------------------
+   Metric cards  (used in KF summary + Validation summary)
+   ---------------------------------------------------------- */
 .metric-card {
   flex: 1;
-  min-width: 90px;
-  background-color: #f9fafb;
+  min-width: 160px;
+  background-color: #ffffff;
   border: 1px solid #dde3ea;
   border-top: 3px solid #2980b9;
-  border-radius: 3px;
-  padding: 8px 10px;
-  text-align: center;
+  border-radius: 4px;
+  padding: 10px 14px;
 }
 
-.metric-card.red   { border-top-color: #e74c3c; }
-.metric-card.green { border-top-color: #27ae60; }
-.metric-card.amber { border-top-color: #e67e22; }
-.metric-card.grey  { border-top-color: #95a5a6; }
-.metric-card.purple{ border-top-color: #8e44ad; }
+.metric-card.purple { border-top-color: #8e44ad; }
+.metric-card.green  { border-top-color: #27ae60; }
+.metric-card.red    { border-top-color: #e74c3c; }
 
 .metric-label {
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #8a96a3;
-  margin-bottom: 3px;
+  margin-bottom: 5px;
 }
 
 .metric-value {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: "Courier New", monospace;
   color: #1a2535;
   line-height: 1.1;
   margin: 0;
 }
 
-.metric-card.red    .metric-value { color: #e74c3c; }
-.metric-card.green  .metric-value { color: #27ae60; }
-.metric-card.amber  .metric-value { color: #e67e22; }
 .metric-card.purple .metric-value { color: #8e44ad; }
+.metric-card.green  .metric-value { color: #1d7a45; }
+.metric-card.red    .metric-value { color: #c0392b; }
 
 .metric-unit {
   font-size: 9px;
   color: #aab0b8;
   font-family: monospace;
+  margin-top: 3px;
+  display: block;
 }
 
 /* ----------------------------------------------------------

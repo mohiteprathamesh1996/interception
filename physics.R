@@ -169,15 +169,18 @@ guidance_apn <- function(r_rel, v_rel, a_tgt_est, N) {
 
 # ── Optimal Guidance Law (ZEM-based) ─────────────────────────────────────────
 # a_cmd = 6 · ZEM / t_go²
-# ZEM (Zero-Effort Miss) = r_rel + v_rel · t_go
-# Minimizes miss distance under energy-optimal control (linear quadratic)
-guidance_ogl <- function(r_rel, v_rel, Vc_est = NULL) {
+# Gravity-compensated ZEM: ZEM = r_rel + v_rel·t_go - 0.5·g·t_go²
+# Without gravity compensation the missile wastes lateral authority
+# fighting the trajectory curvature induced by gravity over t_go.
+# Ref: Zarchan, "Tactical and Strategic Missile Guidance", Ch. 4
+guidance_ogl <- function(r_rel, v_rel, Vc_est = NULL, g_vec = NULL) {
   R <- sqrt(sum(r_rel^2))
   if (R < 1e-3) return(rep(0, 3))
   r_hat  <- r_rel / R
   Vc     <- if (!is.null(Vc_est)) Vc_est else max(-sum(r_hat * v_rel), 0.1)
   t_go   <- max(R / max(Vc, 1.0), 0.1)
-  ZEM    <- r_rel + v_rel * t_go                             # zero-effort miss vector
+  grav_corr <- if (!is.null(g_vec)) 0.5 * g_vec * t_go^2 else rep(0, 3)
+  ZEM    <- r_rel + v_rel * t_go - grav_corr
   6 * ZEM / t_go^2
 }
 
@@ -273,7 +276,7 @@ kf_update <- function(kf_pred, z_meas, R_meas_cov) {
   # Innovation
   innov <- z_meas - as.vector(H_mat %*% kf_pred$x)
 
-  # Innovation covariance
+  # Innovation covariance  (needed for NIS)
   S_mat <- H_mat %*% kf_pred$P %*% t(H_mat) + R_meas_cov
 
   # Kalman gain (regularized inversion)
@@ -290,7 +293,14 @@ kf_update <- function(kf_pred, z_meas, R_meas_cov) {
   # Ensure symmetry and positive-definiteness
   P_upd <- (P_upd + t(P_upd)) / 2 + 1e-8 * diag(6)
 
-  list(x = x_upd, P = P_upd, innov = innov)
+  # Normalised Innovation Squared (NIS)
+  # Under correct filter, NIS ~ chi^2(n_meas).  For 3-D position: 95% bounds [0.35, 7.81]
+  S3    <- S_mat[1:3, 1:3, drop = FALSE]
+  nu3   <- innov[1:3]
+  nis   <- tryCatch(as.numeric(t(nu3) %*% solve(S3 + 1e-9 * diag(3)) %*% nu3),
+                    error = function(e) NA_real_)
+
+  list(x = x_upd, P = P_upd, innov = innov, nis = nis)
 }
 
 # =============================================================================
@@ -437,7 +447,7 @@ run_simulation <- function(params, seed = 42) {
     a_cmd_mag    = numeric(n_max),
     a_actual_mag = numeric(n_max),
     los_rate     = numeric(n_max),
-    zem          = numeric(n_max),      # ZEM magnitude [m]
+    zem          = numeric(n_max),      # gravity-compensated ZEM magnitude [m]
     vc           = numeric(n_max),      # closing speed [m/s]
     mach_int     = numeric(n_max),
     mach_tgt     = numeric(n_max),
@@ -445,7 +455,10 @@ run_simulation <- function(params, seed = 42) {
     drag_tgt_g   = numeric(n_max),
     alt_int      = numeric(n_max),
     alt_tgt      = numeric(n_max),
-    tgo          = numeric(n_max)
+    tgo          = numeric(n_max),
+    nis          = numeric(n_max),      # normalised innovation squared
+    seeker_angle = numeric(n_max),      # angle between velocity and LOS [deg]
+    seeker_track = numeric(n_max)       # 1 = tracking, 0 = open-loop
   )
 
   intercept_step <- NA_integer_
@@ -508,15 +521,29 @@ run_simulation <- function(params, seed = 42) {
       S$los_rate[i] <- sqrt(sum(omega_est^2))
       S$vc[i]       <- Vc_est
 
-      t_go_est      <- R_est / Vc_est
-      S$tgo[i]      <- t_go_est
-      ZEM_vec       <- r_est + v_est * t_go_est
-      S$zem[i]      <- sqrt(sum(ZEM_vec^2))
+      t_go_est  <- R_est / Vc_est
+      S$tgo[i]  <- t_go_est
+
+      # Gravity-compensated ZEM
+      grav_corr_zem <- if (params$enable_gravity) 0.5 * G_VEC * t_go_est^2 else rep(0, 3)
+      ZEM_vec   <- r_est + v_est * t_go_est - grav_corr_zem
+      S$zem[i]  <- sqrt(sum(ZEM_vec^2))
+
+      # Seeker field-of-view check
+      int_spd_now  <- sqrt(sum(int_vel^2))
+      v_int_hat    <- if (int_spd_now > 0.1) int_vel / int_spd_now else r_hat_est
+      cos_ang      <- pmax(-1, pmin(1, sum(v_int_hat * r_hat_est)))
+      seeker_ang_r <- acos(cos_ang)
+      seeker_ok    <- seeker_ang_r <= params$seeker_fov_rad
+      S$seeker_angle[i] <- seeker_ang_r * (180 / pi)
+      S$seeker_track[i] <- as.numeric(seeker_ok)
 
       # Predicted intercept point
       pip <- compute_predicted_intercept(
         int_pos, int_vel, kf$x[1:3], kf$x[4:6], params$v_interceptor)
       if (!is.null(pip)) S$pred_ip[i, ] <- pip$pos
+    } else {
+      seeker_ok <- TRUE
     }
 
     # ── Check intercept ────────────────────────────────────────────────────
@@ -531,13 +558,23 @@ run_simulation <- function(params, seed = 42) {
     kf_prev_vel <- kf$x[4:6]
 
     # ── GUIDANCE COMMAND ──────────────────────────────────────────────────
+    g_arg     <- if (params$enable_gravity) G_VEC else NULL
     a_cmd_vec <- switch(params$guidance_law,
       "pn"   = guidance_pn(r_est, v_est, params$N_pn),
       "apn"  = guidance_apn(r_est, v_est, a_tgt_est, params$N_pn),
-      "ogl"  = guidance_ogl(r_est, v_est, Vc_est),
+      "ogl"  = guidance_ogl(r_est, v_est, Vc_est, g_vec = g_arg),
       "tvpn" = guidance_tvpn(r_est, v_est, params$N_pn),
       guidance_pn(r_est, v_est, params$N_pn)
     )
+
+    # Gravity bias: add upward component to cancel gravity on the LOS
+    # Prevents interceptor wasting lateral authority fighting gravity curvature
+    if (params$enable_gravity) {
+      a_cmd_vec <- a_cmd_vec - G_VEC   # +9.81 upward
+    }
+
+    # Seeker gate: zero guidance command if target outside seeker FOV
+    if (!seeker_ok) a_cmd_vec <- rep(0, 3)
 
     # Clamp to max structural acceleration
     a_cmd_mag <- sqrt(sum(a_cmd_vec^2))
@@ -577,7 +614,8 @@ run_simulation <- function(params, seed = 42) {
     kf_pred    <- kf_predict(kf, dt, sigma_q = params$kf_sigma_q)
     kf_upd     <- kf_update(kf_pred, z_meas, R_cov)
     kf         <- list(x = kf_upd$x, P = kf_upd$P)
-    S$kf_innov[i, ] <- kf_upd$innov[1:3]  # position innovation only
+    S$kf_innov[i, ] <- kf_upd$innov[1:3]
+    S$nis[i]        <- kf_upd$nis %||% NA_real_
 
     # ── RK4 INTEGRATION ───────────────────────────────────────────────────
     tgt_state <- rk4_step(tgt_deriv, tgt_state, t, dt,
@@ -605,6 +643,7 @@ run_simulation <- function(params, seed = 42) {
     intercept_pos  = intercept_pos,
     intercept_time = if (!is.na(intercept_step)) times[intercept_step] else NA_real_,
     miss_distance  = min(S$closing[1:n_v], na.rm = TRUE),
+    naf            = compute_naf(params$N_pn),
     params         = params
   )
   for (nm in names(S)) {
@@ -627,6 +666,53 @@ run_monte_carlo <- function(params, n_runs = 20) {
 cross3 <- function(a, b) c(a[2]*b[3]-a[3]*b[2], a[3]*b[1]-a[1]*b[3], a[1]*b[2]-a[2]*b[1])
 
 `%||%` <- function(a, b) if (!is.null(a) && length(a) > 0 && !is.na(a[1])) a else b
+
+# =============================================================================
+# NAF  —  Navigation Accuracy Factor
+# Measures sensitivity of miss distance to initial heading error and sensor lag.
+# For pure PN with N > 2:  NAF = N(N-2)/2
+# Lower NAF = less sensitive to errors.  N=3 gives NAF=1.5; N=5 gives NAF=7.5.
+# Ref: Zarchan, "Tactical and Strategic Missile Guidance", 6th ed., eq. 5.40
+# =============================================================================
+compute_naf <- function(N_pn) {
+  if (N_pn <= 2) return(NA_real_)
+  N_pn * (N_pn - 2) / 2
+}
+
+# =============================================================================
+# VALIDATION  —  N sweep
+# For each value of N run two simulations:
+#   clean: zero noise, zero actuator lag, no target manoeuvre  (ideal PN)
+#   full:  nominal noise and lag from base_params
+# This lets the user verify that the simulation converges with the analytical
+# trend: miss distance should decrease as N increases (up to about N=5),
+# and NAF should increase (degrading tolerance to initial heading error).
+# =============================================================================
+run_n_sweep <- function(base_params, n_values = c(2, 3, 4, 5, 6)) {
+  lapply(n_values, function(n) {
+    p_clean <- base_params
+    p_clean$N_pn          <- n
+    p_clean$noise_pos     <- 0.01
+    p_clean$noise_tau_c   <- 0
+    p_clean$actuator_tau  <- 0
+    p_clean$maneuver_type <- "none"
+
+    p_full        <- base_params
+    p_full$N_pn   <- n
+
+    s_clean <- run_simulation(p_clean, seed = 1)
+    s_full  <- run_simulation(p_full,  seed = 1)
+
+    list(
+      N          = n,
+      NAF        = compute_naf(n),
+      miss_clean = s_clean$miss_distance,
+      miss_full  = s_full$miss_distance,
+      it_clean   = s_clean$intercept_time,
+      it_full    = s_full$intercept_time
+    )
+  })
+}
 
 # =============================================================================
 # DEFAULT PARAMETERS
@@ -670,6 +756,7 @@ default_params <- function() {
     # Guidance
     guidance_law   = "pn",
     N_pn           = 3.0,
+    seeker_fov_rad = pi / 3,   # 60 deg half-angle (typical RF seeker)
 
     # Sensor
     noise_pos        = 15,    # m 1-sigma

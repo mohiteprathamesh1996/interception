@@ -143,37 +143,37 @@ plot_3d_trajectory <- function(sim, show_noise = TRUE, show_kf = TRUE,
     add_trace(
       x = ti[,1], y = ti[,2], z = ti[,3],
       type = "scatter3d", mode = "lines",
-      line   = list(color = COL$target, width = 3),
+      line   = list(color = COL$target, width = 2),
       name   = "Target (true)", text = th, hoverinfo = "text"
     ) |>
     # Interceptor trajectory
     add_trace(
       x = ii[,1], y = ii[,2], z = ii[,3],
       type = "scatter3d", mode = "lines",
-      line   = list(color = COL$interceptor, width = 3),
+      line   = list(color = COL$interceptor, width = 2),
       name   = "Interceptor", text = ih, hoverinfo = "text"
     ) |>
     # Current positions
     add_trace(
       x = tail(ti[,1], 1), y = tail(ti[,2], 1), z = tail(ti[,3], 1),
       type   = "scatter3d", mode = "markers",
-      marker = list(size = 9, color = COL$target, symbol = "diamond",
-                    line = list(color = "#ffffff", width = 1)),
+      marker = list(size = 5, color = COL$target, symbol = "diamond",
+                    line = list(color = "#ffffff", width = 0.5)),
       name = "Target (current)", showlegend = FALSE, hoverinfo = "skip"
     ) |>
     add_trace(
       x = tail(ii[,1], 1), y = tail(ii[,2], 1), z = tail(ii[,3], 1),
       type   = "scatter3d", mode = "markers",
-      marker = list(size = 9, color = COL$interceptor, symbol = "circle",
-                    line = list(color = "#ffffff", width = 1)),
+      marker = list(size = 5, color = COL$interceptor, symbol = "circle",
+                    line = list(color = "#ffffff", width = 0.5)),
       name = "Interceptor (current)", showlegend = FALSE, hoverinfo = "skip"
     ) |>
     # Launch site
     add_trace(
       x = 0, y = 0, z = 0,
       type   = "scatter3d", mode = "markers",
-      marker = list(size = 7, color = COL$interceptor, symbol = "square",
-                    line = list(color = "#ffffff", width = 1)),
+      marker = list(size = 4, color = COL$interceptor, symbol = "square",
+                    line = list(color = "#ffffff", width = 0.5)),
       name      = "Launch site",
       hovertext = "Launch site [0, 0, 0]", hoverinfo = "text"
     )
@@ -201,8 +201,8 @@ plot_3d_trajectory <- function(sim, show_noise = TRUE, show_kf = TRUE,
       p <- p |> add_trace(
         x = pip[1], y = pip[2], z = pip[3],
         type   = "scatter3d", mode = "markers",
-        marker = list(size = 9, color = COL$los, symbol = "x",
-                      line = list(color = "#ffffff", width = 1.5)),
+        marker = list(size = 5, color = COL$los, symbol = "x",
+                      line = list(color = "#ffffff", width = 0.5)),
         name      = "Predicted intercept",
         hovertext = sprintf("Predicted intercept<br>X: %.0f  Y: %.0f  Z: %.0f",
                             pip[1], pip[2], pip[3]),
@@ -217,8 +217,8 @@ plot_3d_trajectory <- function(sim, show_noise = TRUE, show_kf = TRUE,
     p <- p |> add_trace(
       x = ip2[1], y = ip2[2], z = ip2[3],
       type   = "scatter3d", mode = "markers",
-      marker = list(size = 16, color = COL$intercept_pt, symbol = "x",
-                    line = list(color = "#ffffff", width = 2)),
+      marker = list(size = 8, color = COL$intercept_pt, symbol = "x",
+                    line = list(color = "#ffffff", width = 1)),
       name = sprintf("Intercept  t = %.2f s", sim$intercept_time),
       hovertext = sprintf("Intercept achieved<br>t = %.2f s<br>Miss distance: %.1f m",
                           sim$intercept_time, sim$miss_distance),
@@ -529,7 +529,7 @@ plot_monte_carlo_3d <- function(mc_results) {
   p <- p |> add_trace(
     x = ti[, 1], y = ti[, 2], z = ti[, 3],
     type = "scatter3d", mode = "lines",
-    line = list(color = COL$target, width = 3),
+    line = list(color = COL$target, width = 2),
     name = "Target (nominal)", hoverinfo = "skip"
   )
 
@@ -586,5 +586,138 @@ plot_miss_histogram <- function(mc_results) {
     layout(base_layout(
       sprintf("Miss Distance Distribution  -  Pk = %.1f%%", p_kill),
       xlab = "Miss Distance (m)", ylab = "Count"
+    ))
+}
+
+# ============================================================
+# PLOT 12  -  Normalised Innovation Squared (NIS)
+# Under a consistent filter, NIS ~ chi^2(3).
+# 95% confidence bounds: [0.352, 7.815]
+# Persistent exceedance above the upper bound indicates the
+# filter is over-confident (sigma_q too small, or unmodelled
+# manoeuvre).  Persistent underrun indicates over-tuning.
+# Ref: Bar-Shalom, "Estimation with Applications to Tracking",
+#      Section 5.4
+# ============================================================
+plot_nis <- function(sim) {
+  t   <- sim$times
+  nis <- sim$nis
+  n   <- length(t)
+
+  # chi^2(3) bounds
+  lo95 <- 0.352
+  hi95 <- 7.815
+
+  plot_ly() |>
+    add_trace(x = t, y = nis,
+              type = "scatter", mode = "lines",
+              line = list(color = COL$kf, width = 1.8),
+              fill = "tozeroy", fillcolor = COL$kf_fill,
+              name = "NIS",
+              hovertemplate = "t = %{x:.2f} s<br>NIS = %{y:.2f}<extra></extra>") |>
+    add_trace(x = t, y = rep(hi95, n),
+              type = "scatter", mode = "lines",
+              line = list(color = COL$accel, width = 1, dash = "dot"),
+              name = "95% upper (7.82)", hoverinfo = "skip") |>
+    add_trace(x = t, y = rep(lo95, n),
+              type = "scatter", mode = "lines",
+              line = list(color = COL$intercept_pt, width = 1, dash = "dot"),
+              name = "95% lower (0.35)", hoverinfo = "skip") |>
+    layout(c(
+      base_layout("Normalised Innovation Squared  (NIS)  -  chi^2(3) bounds",
+                  ylab = "NIS"),
+      list(shapes = list(
+        list(type = "rect",
+             x0 = min(t), x1 = max(t),
+             y0 = lo95,   y1 = hi95,
+             fillcolor = "rgba(39,174,96,0.05)",
+             line = list(color = "transparent"))
+      ))
+    ))
+}
+
+# ============================================================
+# PLOT 13  -  N Sweep Validation
+# Compares miss distance across N values for:
+#   - ideal run (zero noise, zero lag, no manoeuvre)
+#   - full run  (nominal noise and lag)
+# Also overlays the NAF to show the sensitivity tradeoff.
+# ============================================================
+plot_n_sweep <- function(sweep_results) {
+  N_vals     <- sapply(sweep_results, function(r) r$N)
+  miss_clean <- sapply(sweep_results, function(r) r$miss_clean)
+  miss_full  <- sapply(sweep_results, function(r) r$miss_full)
+  naf_vals   <- sapply(sweep_results, function(r) r$NAF)
+
+  plot_ly() |>
+    add_trace(x = N_vals, y = miss_full,
+              type = "bar",
+              marker = list(color = COL$interceptor,
+                            line  = list(color = "#ffffff", width = 1)),
+              name  = "Miss (with noise + lag)",
+              hovertemplate = "N = %{x}<br>Miss = %{y:.1f} m<extra></extra>") |>
+    add_trace(x = N_vals, y = miss_clean,
+              type = "bar",
+              marker = list(color = COL$intercept_pt,
+                            line  = list(color = "#ffffff", width = 1)),
+              name  = "Miss (zero noise, zero lag)",
+              hovertemplate = "N = %{x}<br>Miss (ideal) = %{y:.1f} m<extra></extra>") |>
+    add_trace(x = N_vals, y = naf_vals,
+              type = "scatter", mode = "lines+markers",
+              line   = list(color = COL$accel, width = 2),
+              marker = list(size = 7, color = COL$accel),
+              name   = "NAF  =  N(N-2)/2",
+              yaxis  = "y2",
+              hovertemplate = "N = %{x}<br>NAF = %{y:.2f}<extra></extra>") |>
+    layout(c(
+      base_layout("N Sweep  -  Miss Distance vs Navigation Constant",
+                  xlab = "Navigation Constant N", ylab = "Miss Distance (m)"),
+      list(
+        barmode = "group",
+        yaxis2  = list(
+          title      = "NAF  =  N(N-2)/2",
+          overlaying = "y", side = "right",
+          gridcolor  = "transparent",
+          titlefont  = list(color = COL$accel),
+          tickfont   = list(color = COL$accel, size = 10)
+        )
+      )
+    ))
+}
+
+# ============================================================
+# PLOT 14  -  Seeker angle vs time
+# Shows whether the target is inside the seeker FOV throughout
+# the engagement.  Any gap above the FOV limit means open-loop
+# flight and guidance dropout.
+# ============================================================
+plot_seeker_angle <- function(sim) {
+  t   <- sim$times
+  ang <- sim$seeker_angle
+  fov <- sim$params$seeker_fov_rad * (180 / pi)
+  n   <- length(t)
+
+  plot_ly() |>
+    add_trace(x = t, y = ang,
+              type = "scatter", mode = "lines",
+              line = list(color = COL$los, width = 2),
+              fill = "tozeroy", fillcolor = "rgba(230,126,34,0.06)",
+              name = "Seeker angle (deg)",
+              hovertemplate = "t = %{x:.2f} s<br>angle = %{y:.1f} deg<extra></extra>") |>
+    add_trace(x = t, y = rep(fov, n),
+              type = "scatter", mode = "lines",
+              line = list(color = COL$accel, width = 1.2, dash = "dot"),
+              name = sprintf("FOV limit (%.0f deg)", fov),
+              hoverinfo = "skip") |>
+    layout(c(
+      base_layout("Seeker Gimbal Angle  vs  FOV Limit",
+                  ylab = "Angle from boresight (deg)"),
+      list(shapes = list(
+        list(type = "rect",
+             x0 = min(t), x1 = max(t),
+             y0 = fov,    y1 = max(ang, fov, na.rm = TRUE) * 1.1,
+             fillcolor = "rgba(192,57,43,0.06)",
+             line = list(color = "transparent"))
+      ))
     ))
 }

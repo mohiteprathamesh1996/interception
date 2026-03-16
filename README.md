@@ -1,269 +1,230 @@
 # Missile Intercept Lab
 
-An R Shiny application simulating a missile-interceptor engagement in three
-dimensions.  The simulation implements realistic physics and guidance algorithms
-suitable for educational and research purposes.
+An interactive R Shiny application that simulates a missile interceptor
+pursuing a manoeuvring target in three dimensions.
+
+The app is designed for students and researchers who want to explore how
+guidance algorithms work — you can change the physics, tune the sensors,
+and watch the engagement play out in real time.
 
 ---
 
-## Contents
-
-```
-missile_app/
-  app.R           Main Shiny application (UI + server)
-  R/
-    physics.R     Simulation engine (pure R, no Shiny dependency)
-    plots.R       Plotly visualisation functions
-  www/
-    style.css     Application stylesheet
-  README.md       This file
-```
-
----
-
-## Requirements
-
-R (>= 4.0) with the following packages:
+## Quick Start
 
 ```r
 install.packages(c("shiny", "plotly", "shinycssloaders", "shinyjs"))
-```
-
----
-
-## Running the Application
-
-```r
 shiny::runApp("missile_app/")
 ```
 
-Or open `app.R` in RStudio and click **Run App**.
-
 ---
 
-## Physics Overview
+## What the App Shows
 
-### Numerical Integration
+When you open the app, a simulation runs immediately with default settings.
+The main view is a 3D plot showing three paths:
 
-All state variables are integrated using the classical fourth-order Runge-Kutta
-method (RK4).  This gives a global truncation error of O(dt^4), compared with
-O(dt) for the Euler method used in most introductory implementations.  The
-default time step is dt = 0.02 s, which is conservative and accurate even for
-fast-turning engagements.
+- **Red line** — the target, flying and evading
+- **Blue line** — the interceptor, guided toward the target
+- **Purple dashed line** — what the Kalman filter *thinks* the target is doing,
+  based on noisy radar data
 
-### Guidance Laws
+Above the plot, nine KPI cards update as you scrub through the engagement:
 
-Four guidance laws are implemented:
-
-| Law | Formula | Notes |
-|-----|---------|-------|
-| Pure PN | a = N * Vc * (omega_LOS x r_hat) | Standard proportional navigation |
-| Augmented PN | a = N*Vc*(omega_LOS x r_hat) + (N/2)*a_tgt_perp | Adds target acceleration feedforward |
-| Optimal (OGL) | a = 6 * ZEM / t_go^2 | Minimises miss distance (LQR solution) |
-| Time-Varying PN | N_eff = N*(1 + 1/t_go) | Boosts gain as engagement closes |
-
-Where:
-- `r_hat` is the unit line-of-sight (LOS) vector from interceptor to target
-- `Vc` is the closing speed: `Vc = -r_hat . v_rel`
-- `omega_LOS` is the LOS angular rate: `omega_LOS = (r_hat x v_rel) / |r|`
-- `ZEM` is the zero-effort miss vector: `ZEM = r_rel + v_rel * t_go`
-- `t_go` is estimated time to go: `t_go = |r| / Vc`
-
-### Kalman Filter
-
-A 6-state linear Kalman filter tracks the target's position and velocity.  The
-guidance laws use this filtered estimate rather than the raw (noisy) radar
-measurement.
-
-- State vector: `x = [px, py, pz, vx, vy, vz]`
-- Process model: constant velocity with discrete Wiener process noise
-- Measurement model: position only, or position + velocity (Doppler mode)
-- The process noise parameter `sigma_q` (m/s^2) represents the expected target
-  manoeuvre acceleration; increase it for agile targets
-
-### Actuator Dynamics
-
-Guidance commands are passed through a first-order lag:
-
-```
-tau * a_dot + a_actual = a_cmd
-```
-
-Discretised as:
-
-```
-a(k+1) = a(k) + (dt / tau) * (a_cmd - a(k))
-```
-
-Setting `tau = 0` gives ideal (instantaneous) response.  A realistic fin
-actuator has `tau` in the range 0.05 to 0.25 s.
-
-### Atmosphere and Drag
-
-The ISA (International Standard Atmosphere) model is used for the troposphere
-(0 to 11 km altitude):
-
-```
-T(z)   = 288.15 - 0.0065 * z   (K)
-rho(z) = 1.225 * (T / 288.15)^4.256   (kg/m^3)
-```
-
-Aerodynamic drag is modelled using the ballistic coefficient beta = m / (Cd * A)
-in kg/m^2.  The deceleration is:
-
-```
-a_drag = -rho(z) * v^2 / (2 * beta) * v_hat
-```
-
-Typical values: cruise missile 2000-5000 kg/m^2, interceptor 1500-4000 kg/m^2.
-Drag is disabled by default; enable it in Physics Settings.
-
-### Gravity
-
-Gravity acts as a constant downward acceleration in the ENU (East-North-Up)
-frame: `g = [0, 0, -9.81]` m/s^2.  Both bodies experience gravity.  Powered
-flight models (enabled by default) apply forward thrust to counteract drag and
-gravity along the velocity vector.
-
-### Radar Noise
-
-Radar measurements use a first-order autoregressive AR(1) noise model:
-
-```
-n(k) = rho * n(k-1) + sigma * sqrt(1 - rho^2) * w,   w ~ N(0,1)
-rho  = exp(-dt / tau_c)
-```
-
-This generates temporally correlated noise that is more realistic than
-independent Gaussian samples.  The effective noise standard deviation also
-scales with range:
-
-```
-sigma_eff(R) = sigma_0 * (1 + k_R * R / 10000)
-```
-
-### Target Manoeuvres
-
-| Profile | Description |
-|---------|-------------|
-| None | Straight and level flight |
-| Sinusoidal weave | Lateral oscillation at configurable amplitude and frequency |
-| Bang-bang | Hard lateral reversal at maximum g every half period |
-| 3D spiral | Simultaneous sinusoidal manoeuvre in two perpendicular planes |
-| Stochastic | Random lateral direction each time step |
+| Card | What it means |
+|------|--------------|
+| Interceptor speed | How fast the missile is moving right now |
+| Target speed | How fast the target is moving right now |
+| Closing range | Distance between the two objects |
+| Accel (actual) | How hard the interceptor is currently turning, in g |
+| Interceptor Mach | Speed as a multiple of the speed of sound |
+| Zero-effort miss | If guidance stopped now, how far would it miss by |
+| KF error | How wrong the Kalman filter estimate currently is |
+| Min miss distance | Closest the interceptor has come to the target |
+| Intercept time | When (if) the interceptor reached the target |
 
 ---
 
 ## Controls
 
 ### Physics Settings
-- **Gravity** - toggles gravitational acceleration (ENU frame, +Z up)
-- **Aerodynamic drag** - toggles ISA atmosphere + ballistic coefficient drag model
-- **Ballistic coefficients** - higher value means less drag (heavier / more streamlined)
+
+**Gravity** — when on, both objects fall under 9.81 m/s. Without this,
+everything flies in straight lines regardless of altitude.
+
+**Aerodynamic drag** — when on, the air slows both objects down based on
+altitude and their shape (set by the ballistic coefficient sliders).
+Higher ballistic coefficient = sleeker, less drag.
 
 ### Guidance Law
-- **Law selector** - choose from PN, APN, OGL, or TVPN
-- **Navigation constant N** - proportional navigation gain; higher value gives more
-  aggressive steering but can cause instability; 3-5 is typical
-- **Actuator lag tau** - first-order lag on the guidance command in seconds
+
+Four algorithms are available. They differ in how they calculate which
+direction to steer:
+
+- **Pure PN** — the standard approach. Steer to cancel the rotation of the
+  line between you and the target. Works well for non-manoeuvring targets.
+- **Augmented PN** — same as Pure PN, but also compensates for the target's
+  current acceleration. Better against targets that are actively turning.
+- **Optimal (OGL)** — computes the minimum-energy path to intercept.
+  Best theoretical performance, especially at long range.
+- **Time-Varying PN** — like Pure PN, but the gain increases automatically
+  as the interceptor closes in. Helps in the final seconds of the engagement.
+
+**Navigation constant N** — how aggressively the interceptor steers. Higher
+values mean sharper turns but can overshoot. Three to five is typical.
+
+**Actuator lag (tau)** — real fins and control surfaces take time to move.
+This adds that delay. Set to zero for an ideal instantaneous response;
+increase it to see how sluggish actuation degrades accuracy.
 
 ### Target
-- **Speed** - target speed in m/s (direction is set by the Vx/Vy inputs)
-- **Evasive manoeuvre** - manoeuvre profile and parameters
-- **Initial position** - X, Y, Z coordinates of target at t = 0
-- **Initial velocity direction** - Vx, Vy components (Vz defaults to 0)
+
+**Speed** — target speed in metres per second.
+
+**Evasive manoeuvre** — how the target tries to avoid the interceptor:
+
+- **None** — flies straight
+- **Sinusoidal weave** — oscillates sideways at a set frequency
+- **Bang-bang** — snaps hard left, then hard right, alternating
+- **3D spiral** — weaves in two planes simultaneously
+- **Stochastic** — random direction changes each time step
+
+**Initial position and velocity** — where the target starts and which
+direction it is heading.
 
 ### Interceptor
-- **Max speed** - speed cap on interceptor in m/s
-- **Max lateral acceleration** - structural g-limit
-- **Max thrust** - forward thrust available to maintain speed
-- **Initial position** - launch site coordinates
+
+**Max speed** — the interceptor's speed cap. Must be faster than the target
+to have a chance.
+
+**Max lateral acceleration** — the structural g-limit. Higher values allow
+tighter turns but are physically demanding.
+
+**Max thrust** — forward thrust to compensate for drag and gravity.
+
+**Initial position** — where the interceptor launches from.
 
 ### Radar / Sensor
-- **Position noise sigma** - 1-sigma Gaussian noise on position measurements (m)
-- **Noise correlation time** - AR(1) time constant; 0 = white noise
-- **Range-dependent noise scale** - how quickly noise grows with range
-- **Doppler measurement** - also observe target velocity (noisily)
+
+**Position noise** — how inaccurate the radar is when measuring where the
+target is. Larger values make tracking harder.
+
+**Noise correlation time** — real radar errors are not random every
+millisecond; they drift slowly. This controls how quickly the noise changes.
+Zero means fully random; higher values mean the error persists longer.
+
+**Range-dependent noise scale** — accuracy gets worse at longer range.
+This controls how quickly.
+
+**Doppler measurement** — if on, the radar also measures the target's
+velocity directly (with some noise), which helps the Kalman filter converge
+faster.
 
 ### Kalman Filter
-- **Process noise sigma_q** - expected target manoeuvre acceleration (m/s^2);
-  increase for agile targets, decrease for smooth trajectories
-- **Initial velocity uncertainty** - prior uncertainty on target velocity
+
+The Kalman filter is the "brain" that turns noisy radar data into a clean
+estimate of where the target is and where it is going.
+
+**Process noise (sigma_q)** — how much the filter expects the target to
+manoeuvre. Too low, and the filter ignores sudden turns. Too high, and it
+becomes jumpy. Match this roughly to the target's actual manoeuvre amplitude.
+
+**Initial velocity uncertainty** — how uncertain the filter is about the
+target's speed at the start. Lower values mean it trusts its initial guess
+more.
+
+### Monte Carlo
+
+Runs the same simulation many times with different random noise seeds.
+This shows the spread of possible outcomes — some runs will intercept,
+some will miss — and gives a realistic picture of system reliability.
 
 ### Animation
-- **Animation frame** - scrub through the engagement step by step
-- **Auto-play** - step through at approximately 18 frames per second
-- **Display toggles** - show/hide radar track, KF estimate, LOS vector,
-  predicted intercept point
+
+The **animation frame** slider lets you scrub through the engagement step
+by step. **Auto-play** steps through automatically.
+
+The toggles show or hide: the noisy radar track, the Kalman filter estimated
+path, the line-of-sight vector, and the predicted intercept point.
 
 ---
 
 ## Tabs
 
-| Tab | Content |
-|-----|---------|
-| 3D Engagement | Animated 3D view with true trajectories, KF estimate, noisy radar track, LOS vector, predicted and actual intercept points |
-| Guidance Metrics | Closing range + ZEM, commanded vs actuator acceleration, LOS rate + time-to-go, speed vs time |
-| Kinematics | Altitude vs time, Mach number, aerodynamic drag deceleration |
-| Kalman Filter | Estimation error vs 1-sigma uncertainty, innovation (measurement residual), filter consistency check |
-| Monte Carlo | Overlaid interceptor trajectories across all runs, miss distance histogram, intercept probability |
-| Physics Reference | Equations and variable definitions for all models used |
+| Tab | What is in it |
+|-----|--------------|
+| 3D Engagement | The main 3D view with all trajectories |
+| Guidance Metrics | Closing range, ZEM, acceleration, LOS rate, speed — all vs time |
+| Kinematics | Altitude and Mach number over time; drag deceleration if enabled |
+| Kalman Filter | How accurate the filter estimate is, and the measurement residuals |
+| Monte Carlo | Overlaid trajectories from all runs; miss distance histogram |
+| Physics Reference | The equations behind every model in plain text |
 
 ---
 
-## Colour Coding
+## File Structure
 
-| Colour | Element |
-|--------|---------|
-| Red | Target trajectory |
-| Blue | Interceptor trajectory |
-| Purple (dashed) | Kalman filter estimate |
-| Green | Intercept point, kill radius, positive status |
-| Amber | LOS vector, closing range, ZEM |
-| Faint red dots | Noisy radar track |
-
----
-
-## Extending the Simulation
-
-The physics engine (`R/physics.R`) has no Shiny dependency and can be called
-independently for batch simulation or scripted analysis.
-
-Key functions:
-
-```r
-# Single run
-result <- run_simulation(params)
-
-# Monte Carlo
-results <- run_monte_carlo(params, n_runs = 50)
-
-# Default parameters as a starting point
-p <- default_params()
-p$v_target <- 600
-p$guidance_law <- "ogl"
-result <- run_simulation(p)
+```
+missile_app/
+  app.R           Shiny UI and server logic
+  R/
+    physics.R     Simulation engine — runs independently of Shiny
+    plots.R       All Plotly chart functions
+  www/
+    style.css     Stylesheet
+  README.md       This file
 ```
 
-Possible extensions:
+The physics engine has no Shiny dependency. You can call it directly
+in scripts for batch runs or parameter sweeps:
 
-- Replace Euler speed cap with proper 6-DOF thrust integration
-- Add roll dynamics and bank-to-turn steering
-- Implement an extended Kalman filter for nonlinear target models (e.g. coordinated turn)
-- Add a seeker field-of-view constraint (the guidance command should be gated by
-  whether the target is inside the seeker gimbal limit)
-- Model radar clutter or electronic countermeasures as additional noise sources
-- Add a second interceptor for salvo engagement analysis
+```r
+source("R/physics.R")
+
+p              <- default_params()
+p$v_target     <- 600
+p$guidance_law <- "ogl"
+
+result <- run_simulation(p)
+
+# result$closing      — range at each time step
+# result$int_pos      — interceptor position matrix (n x 3)
+# result$tgt_pos      — target position matrix (n x 3)
+# result$miss_distance — closest approach
+```
+
+---
+
+## Tips for Exploration
+
+**Why is the interceptor missing?**
+Check the closing range plot. If range is not decreasing, the interceptor is
+too slow or the initial heading is wrong. Try increasing interceptor speed
+or switching to OGL guidance.
+
+**Why is the Kalman filter lagging behind the target?**
+The process noise (sigma_q) is probably set too low for the target's
+manoeuvre level. Increase it to make the filter more responsive.
+
+**How does actuator lag affect performance?**
+Compare the Commanded vs Actuator output lines on the Guidance Metrics tab.
+At high tau, there is a clear gap — the interceptor cannot respond quickly
+enough, which matters most in the final seconds.
+
+**What is a good N value?**
+For a non-manoeuvring target, N = 3 is standard. For a bang-bang target,
+try N = 4 or 5, or switch to Augmented PN which accounts for the target
+acceleration directly.
 
 ---
 
 ## Known Limitations
 
-- Euler speed cap: when propulsion is on, speed is clamped rather than integrated
-  through a proper thrust-drag energy equation; this is a minor approximation
-- Constant-velocity Kalman process model will lag during hard target manoeuvres;
-  an interacting multiple model (IMM) filter would handle manoeuvre detection better
-- No gravity gradient above 11 km; ISA stratosphere model is included but not
-  validated against real range test data
-- The target manoeuvre is applied as a pure lateral force with no aerodynamic
-  coupling to the drag model
+- The target manoeuvre is a pure lateral force and is not coupled to the
+  drag model — in reality, hard turns increase aerodynamic drag significantly.
+- The Kalman filter uses a constant-velocity process model. It will lag
+  noticeably during a bang-bang manoeuvre. An interacting multiple model (IMM)
+  filter would handle this better.
+- Integration is RK4 at a fixed time step. Variable-step integration would
+  be more efficient for engagements with very different timescales.
+- No seeker field-of-view limit — the interceptor can always see the target
+  regardless of angle.
