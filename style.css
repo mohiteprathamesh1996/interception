@@ -1,0 +1,344 @@
+/* ============================================================
+   Missile Intercept Lab  -  Clean Professional Theme
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #f4f6f8;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  color: #2c3e50;
+  margin: 0;
+}
+
+/* ----------------------------------------------------------
+   Page header
+   ---------------------------------------------------------- */
+.page-header {
+  background-color: #1a2535;
+  color: #ffffff;
+  padding: 14px 24px;
+  border-bottom: 3px solid #2980b9;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+}
+
+.page-header p {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: #8fa3bc;
+  letter-spacing: 0.06em;
+}
+
+/* ----------------------------------------------------------
+   Sidebar
+   ---------------------------------------------------------- */
+.sidebar {
+  background-color: #ffffff;
+  border-right: 1px solid #dde3ea;
+  padding: 16px;
+  height: calc(100vh - 65px);
+  overflow-y: auto;
+}
+
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7f8c8d;
+  border-bottom: 1px solid #ecf0f1;
+  padding-bottom: 5px;
+  margin: 18px 0 10px;
+}
+
+.section-label:first-child {
+  margin-top: 4px;
+}
+
+/* ----------------------------------------------------------
+   Buttons
+   ---------------------------------------------------------- */
+.btn-primary-custom {
+  width: 100%;
+  background-color: #2980b9;
+  border: none;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 9px 0;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  text-transform: uppercase;
+}
+
+.btn-primary-custom:hover,
+.btn-primary-custom:focus {
+  background-color: #1f6fa0;
+  color: #ffffff;
+  outline: none;
+}
+
+.btn-secondary-custom {
+  width: 100%;
+  background-color: transparent;
+  border: 1px solid #2980b9;
+  color: #2980b9;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 7px 0;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.btn-secondary-custom:hover,
+.btn-secondary-custom:focus {
+  background-color: #2980b9;
+  color: #ffffff;
+  outline: none;
+}
+
+/* ----------------------------------------------------------
+   Form controls
+   ---------------------------------------------------------- */
+.form-control {
+  border: 1px solid #dde3ea;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #2c3e50;
+  background-color: #ffffff;
+  padding: 5px 8px;
+  height: 30px;
+}
+
+.form-control:focus {
+  border-color: #2980b9;
+  box-shadow: 0 0 0 2px rgba(41,128,185,0.15);
+  outline: none;
+}
+
+select.form-control {
+  height: 30px;
+}
+
+label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #596270;
+  margin-bottom: 3px;
+}
+
+.checkbox label {
+  font-weight: 400;
+  font-size: 12px;
+  color: #596270;
+}
+
+/* Sliders */
+.irs--shiny .irs-bar {
+  background: #2980b9 !important;
+  border-color: #2980b9 !important;
+}
+
+.irs--shiny .irs-handle {
+  border-color: #2980b9 !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+}
+
+.irs--shiny .irs-single {
+  background: #2980b9 !important;
+  font-size: 10px !important;
+  font-family: monospace !important;
+  border-radius: 2px !important;
+}
+
+.irs--shiny .irs-line {
+  background: #dde3ea !important;
+  border-color: #dde3ea !important;
+}
+
+.irs--shiny .irs-min,
+.irs--shiny .irs-max {
+  font-size: 9px !important;
+  color: #aab0b8 !important;
+  font-family: monospace !important;
+  background: transparent !important;
+}
+
+/* ----------------------------------------------------------
+   Tabs
+   ---------------------------------------------------------- */
+.nav-tabs {
+  border-bottom: 2px solid #dde3ea !important;
+  background-color: #f9fafb !important;
+  padding: 0 12px;
+}
+
+.nav-tabs > li > a {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #8a96a3 !important;
+  background-color: transparent !important;
+  border: 2px solid transparent !important;
+  border-bottom: none !important;
+  padding: 8px 14px !important;
+  border-radius: 0 !important;
+  transition: color 0.12s ease;
+}
+
+.nav-tabs > li > a:hover {
+  color: #2c3e50 !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+}
+
+.nav-tabs > li.active > a,
+.nav-tabs > li.active > a:hover,
+.nav-tabs > li.active > a:focus {
+  color: #2980b9 !important;
+  background-color: #ffffff !important;
+  border-color: #dde3ea #dde3ea #ffffff !important;
+  border-bottom-color: #ffffff !important;
+  margin-bottom: -2px;
+}
+
+.tab-content {
+  background-color: #f4f6f8 !important;
+  padding: 0 !important;
+}
+
+/* ----------------------------------------------------------
+   Metric cards row
+   ---------------------------------------------------------- */
+.metric-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px 8px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #dde3ea;
+  flex-wrap: wrap;
+}
+
+.metric-card {
+  flex: 1;
+  min-width: 90px;
+  background-color: #f9fafb;
+  border: 1px solid #dde3ea;
+  border-top: 3px solid #2980b9;
+  border-radius: 3px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.metric-card.red   { border-top-color: #e74c3c; }
+.metric-card.green { border-top-color: #27ae60; }
+.metric-card.amber { border-top-color: #e67e22; }
+.metric-card.grey  { border-top-color: #95a5a6; }
+.metric-card.purple{ border-top-color: #8e44ad; }
+
+.metric-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8a96a3;
+  margin-bottom: 3px;
+}
+
+.metric-value {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: "Courier New", monospace;
+  color: #1a2535;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.metric-card.red    .metric-value { color: #e74c3c; }
+.metric-card.green  .metric-value { color: #27ae60; }
+.metric-card.amber  .metric-value { color: #e67e22; }
+.metric-card.purple .metric-value { color: #8e44ad; }
+
+.metric-unit {
+  font-size: 9px;
+  color: #aab0b8;
+  font-family: monospace;
+}
+
+/* ----------------------------------------------------------
+   Status bar
+   ---------------------------------------------------------- */
+.status-bar {
+  font-size: 12px;
+  font-family: "Courier New", monospace;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-align: center;
+  padding: 6px 12px;
+  border-top: 1px solid transparent;
+}
+
+.status-bar.intercept {
+  background-color: #eafaf1;
+  border-top-color: #27ae60;
+  color: #1e8449;
+}
+
+.status-bar.miss {
+  background-color: #fdedec;
+  border-top-color: #e74c3c;
+  color: #c0392b;
+}
+
+/* ----------------------------------------------------------
+   Equation display
+   ---------------------------------------------------------- */
+.eq-box {
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+  background-color: #f0f4f8;
+  border-left: 3px solid #2980b9;
+  border-radius: 2px;
+  padding: 7px 10px;
+  margin: 6px 0;
+  color: #2c3e50;
+  line-height: 1.7;
+}
+
+/* ----------------------------------------------------------
+   KF summary row
+   ---------------------------------------------------------- */
+.kf-summary {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  flex-wrap: wrap;
+  background-color: #f9fafb;
+  border-top: 1px solid #dde3ea;
+}
+
+/* ----------------------------------------------------------
+   Scrollbar (webkit)
+   ---------------------------------------------------------- */
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track { background: #f4f6f8; }
+::-webkit-scrollbar-thumb { background: #c8d0da; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2980b9; }
